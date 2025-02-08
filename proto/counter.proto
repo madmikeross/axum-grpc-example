@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package counter;
+
+service CounterService {
+  rpc IncrementCounter (Empty) returns (CounterValue);
+}
+
+message Empty {}
+
+message CounterValue {
+  int32 value = 1;
+}

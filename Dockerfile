@@ -1,48 +1,45 @@
 # 1️⃣ Build Stage (Use Rust Official Image with Build Tools)
 FROM rust:latest AS builder
 
-# Set working directory inside the container
-WORKDIR /app
-
-# Install protobuf compiler
+# Install sqlx-cli so that migrations can be run in the start.sh script
+RUN cargo install sqlx-cli --no-default-features --features postgres
+# Install build dependencies
 RUN apt-get update && apt-get install -y protobuf-compiler
 
-# Copy only Cargo files to leverage Docker cache
+WORKDIR /app
+
+# Cache cargo dependencies
 COPY Cargo.toml Cargo.lock ./
-COPY proto ./proto
-
-# Create a dummy lib.rs to prevent dependency invalidation
 RUN mkdir -p src && echo "fn main() {}" > src/main.rs
+RUN cargo fetch
 
-# Fetch dependencies
-RUN cargo build --release && cargo clean
-
-# Now copy the actual source files
-COPY src ./src
+# Copy source files
 COPY build.rs ./
+COPY .sqlx ./.sqlx
+COPY proto ./proto
+COPY src ./src
 
-# Explicitly run build.rs before main compilation (sets OUT_DIR)
-RUN cargo check
-
-# Build the actual binary
+# Build the release binary
 RUN cargo build --release
 
 # 2️⃣ Runtime Stage (Minimal, Secure Image)
 FROM debian:bookworm-slim
 
-# Install required dependencies for gRPC
+# Install additional dependencies
 RUN apt-get update && apt-get install -y \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Set working directory
 WORKDIR /app
 
-# Copy the compiled binary from the builder stage
+# Copy start script dependencies
+COPY --from=builder /usr/local/cargo/bin/sqlx /usr/local/bin/sqlx
+COPY start.sh /app/start.sh
+COPY migrations /app/migrations
 COPY --from=builder /app/target/release/axum-grpc-example /app/axum-grpc-example
 
 # Expose gRPC and HTTP ports
 EXPOSE 50051 8080
 
-# Run the service
-CMD ["/app/axum-grpc-example"]
+# Call the start script
+ENTRYPOINT ["/bin/sh", "/app/start.sh"]

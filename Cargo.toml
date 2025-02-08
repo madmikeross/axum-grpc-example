@@ -4,13 +4,15 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-axum = "0.7"
-prost = "0.12"
+axum = "0.8.1"
+prost = "0.13.4"
+sqlx = { version = "0.8.3", features = ["postgres", "runtime-tokio", "migrate"] }
 tokio = { version = "1", features = ["full"] }
 tokio-stream = { version = "0.1.17", features = ["net"] }
-tonic = "0.11"
-tower = "0.4"
-tower-http = { version = "0.5", features = ["cors", "trace"] }
+tonic = "0.12.3"
+tower = "0.5.2"
+tower-http = { version = "0.6.2", features = ["cors", "trace"] }
+
 
 [build-dependencies]
-tonic-build = "0.11"
+tonic-build = "0.12.3"

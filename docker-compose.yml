@@ -1,0 +1,34 @@
+services:
+  db:
+    image: postgres:15
+    container_name: postgres-db
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - "${POSTGRES_PORT}:${POSTGRES_PORT}"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./migrations:/migrations
+    networks:
+      - axum-grpc-service-network
+
+  axum-grpc-service:
+    build: .
+    container_name: axum-grpc-service
+    depends_on:
+      - db
+    env_file:
+      - .env
+    ports:
+      - "50051:50051"
+      - "3000:3000"
+    networks:
+      - axum-grpc-service-network
+
+networks:
+  axum-grpc-service-network:
+    driver: bridge
+
+volumes:
+  pg_data:
