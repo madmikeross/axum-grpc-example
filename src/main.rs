@@ -1,50 +1,14 @@
 use axum::{routing::get, Json, Router};
-use std::env;
-use std::fs;
 use tokio::net::TcpListener;
 use tokio::signal;
 use tonic::transport::Server;
 use tower_http::cors::CorsLayer;
 
 mod grpc;
-use grpc::counter_service;
+mod postgres;
 
 async fn health_check() -> Json<&'static str> {
     Json("API is up and running!")
-}
-
-fn get_database_url() -> String {
-    let user = env::var("POSTGRES_USER").expect("POSTGRES_USER not set");
-    let password_file = env::var("POSTGRES_PASSWORD_FILE").expect("POSTGRES_PASSWORD_FILE not set");
-    let password =
-        fs::read_to_string(password_file).unwrap_or_else(|_| panic!("Could not read password"));
-    let db_name = env::var("POSTGRES_DB").expect("POSTGRES_DB not set");
-    let host = env::var("POSTGRES_HOST").expect("POSTGRES_HOST not set");
-    let port = env::var("POSTGRES_PORT").expect("POSTGRES_PORT not set");
-
-    format!(
-        "postgres://{}:{}@{}:{}/{}",
-        user, password, host, port, db_name
-    )
-}
-
-async fn connect_to_database() -> Result<sqlx::PgPool, sqlx::Error> {
-    let mut retries = 5;
-
-    while retries > 0 {
-        match sqlx::PgPool::connect(&get_database_url()).await {
-            Ok(pool) => return Ok(pool),
-            Err(e) => {
-                eprintln!("Database connection failed: {}. Retrying...", e);
-                retries -= 1;
-                tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-            }
-        }
-    }
-
-    Err(sqlx::Error::Configuration(
-        "Failed to connect to database".into(),
-    ))
 }
 
 #[tokio::main]
@@ -52,7 +16,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Starting server");
 
     println!("Connecting to database");
-    let pool = connect_to_database().await?;
+    let pool = postgres::connection_pool().await?;
 
     println!("Running database migrations");
     sqlx::migrate!().run(&pool).await?;
@@ -72,12 +36,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Starting gRPc service");
     let grpc_listener = TcpListener::bind("0.0.0.0:50051").await?;
     println!("gRPC service is listening at localhost:50051");
-    let counter = counter_service(pool.clone()).await;
+    let counter = grpc::counter_service(pool.clone()).await;
     let grpc_server = Server::builder()
         .add_service(counter)
         .serve_with_incoming_shutdown(
             tokio_stream::wrappers::TcpListenerStream::new(grpc_listener),
-            shutdown_signal(), // Listen for SIGINT
+            shutdown_signal(),
         );
 
     tokio::select! {
