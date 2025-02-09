@@ -7,7 +7,6 @@ use tonic::transport::Server;
 use tower_http::cors::CorsLayer;
 
 mod grpc;
-use crate::grpc::greeter_service;
 use grpc::counter_service;
 
 async fn health_check() -> Json<&'static str> {
@@ -74,10 +73,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let grpc_listener = TcpListener::bind("0.0.0.0:50051").await?;
     println!("gRPC service is listening at localhost:50051");
     let counter = counter_service(pool.clone()).await;
-    let greeter = greeter_service().await;
     let grpc_server = Server::builder()
         .add_service(counter)
-        .add_service(greeter)
         .serve_with_incoming_shutdown(
             tokio_stream::wrappers::TcpListenerStream::new(grpc_listener),
             shutdown_signal(), // Listen for SIGINT

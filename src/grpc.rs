@@ -1,13 +1,7 @@
 use counter::counter_service_server::{CounterService, CounterServiceServer};
 use counter::{CounterValue, Empty};
-use hello::greeter_server::{Greeter, GreeterServer};
-use hello::{HelloRequest, HelloResponse};
 use sqlx::PgPool;
 use tonic::{Request, Response, Status};
-
-pub mod hello {
-    tonic::include_proto!("hello");
-}
 
 pub mod counter {
     tonic::include_proto!("counter");
@@ -33,23 +27,4 @@ impl CounterService for MyCounterService {
 
 pub async fn counter_service(db: PgPool) -> CounterServiceServer<MyCounterService> {
     CounterServiceServer::new(MyCounterService { db })
-}
-
-#[derive(Default)]
-pub struct MyGreeter;
-
-#[tonic::async_trait]
-impl Greeter for MyGreeter {
-    async fn say_hello(
-        &self,
-        req: Request<HelloRequest>,
-    ) -> Result<Response<HelloResponse>, Status> {
-        Ok(Response::new(HelloResponse {
-            message: format!("Hello {}!", req.into_inner().name),
-        }))
-    }
-}
-
-pub async fn greeter_service() -> GreeterServer<MyGreeter> {
-    GreeterServer::new(MyGreeter::default())
 }
