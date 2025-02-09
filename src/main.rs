@@ -1,10 +1,10 @@
 use axum::{routing::get, Json, Router};
 use std::env;
+use std::fs;
 use tokio::net::TcpListener;
 use tokio::signal;
 use tonic::transport::Server;
 use tower_http::cors::CorsLayer;
-use std::fs;
 
 mod grpc;
 use crate::grpc::greeter_service;
@@ -17,7 +17,8 @@ async fn health_check() -> Json<&'static str> {
 fn get_database_url() -> String {
     let user = env::var("POSTGRES_USER").expect("POSTGRES_USER not set");
     let password_file = env::var("POSTGRES_PASSWORD_FILE").expect("POSTGRES_PASSWORD_FILE not set");
-    let password = fs::read_to_string(password_file).unwrap_or_else(|_| panic!("Could not read password"));
+    let password =
+        fs::read_to_string(password_file).unwrap_or_else(|_| panic!("Could not read password"));
     let db_name = env::var("POSTGRES_DB").expect("POSTGRES_DB not set");
     let host = env::var("POSTGRES_HOST").expect("POSTGRES_HOST not set");
     let port = env::var("POSTGRES_PORT").expect("POSTGRES_PORT not set");
@@ -29,11 +30,10 @@ fn get_database_url() -> String {
 }
 
 async fn connect_to_database() -> Result<sqlx::PgPool, sqlx::Error> {
-    let database_url = get_database_url();
     let mut retries = 5;
 
     while retries > 0 {
-        match sqlx::PgPool::connect(&database_url).await {
+        match sqlx::PgPool::connect(&get_database_url()).await {
             Ok(pool) => return Ok(pool),
             Err(e) => {
                 eprintln!("Database connection failed: {}. Retrying...", e);
@@ -43,19 +43,20 @@ async fn connect_to_database() -> Result<sqlx::PgPool, sqlx::Error> {
         }
     }
 
-    Err(sqlx::Error::Configuration("Failed to connect to database".into()))
+    Err(sqlx::Error::Configuration(
+        "Failed to connect to database".into(),
+    ))
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("Starting server...");
+    println!("Starting server");
 
     println!("Connecting to database");
     let pool = connect_to_database().await?;
 
     println!("Running database migrations");
     sqlx::migrate!().run(&pool).await?;
-
 
     println!("Starting REST service");
     let rest_app = Router::new()
@@ -82,7 +83,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             shutdown_signal(), // Listen for SIGINT
         );
 
-    // Wait for REST and gRPC to finish
     tokio::select! {
         _ = rest_server => {},
         result = grpc_server => {
@@ -92,7 +92,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    // Clean up
     println!("Closing database connection");
     pool.close().await;
 
@@ -100,7 +99,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-// Graceful shutdown handler
 async fn shutdown_signal() {
     signal::ctrl_c()
         .await

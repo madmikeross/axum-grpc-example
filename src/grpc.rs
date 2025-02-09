@@ -44,11 +44,9 @@ impl Greeter for MyGreeter {
         &self,
         req: Request<HelloRequest>,
     ) -> Result<Response<HelloResponse>, Status> {
-        let name = req.into_inner().name;
-        let reply = HelloResponse {
-            message: format!("Hello {}!", name),
-        };
-        Ok(Response::new(reply))
+        Ok(Response::new(HelloResponse {
+            message: format!("Hello {}!", req.into_inner().name),
+        }))
     }
 }
 
