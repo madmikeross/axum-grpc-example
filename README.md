@@ -2,10 +2,6 @@
 A lightweight example of using Axum with gRPC.
 
 ### Run the service
-Create your environment file by copying the example
-```shell
-cp .env.example .env
-```
 Make sure all containers are removed
 ```shell
 docker compose down

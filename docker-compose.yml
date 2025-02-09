@@ -2,33 +2,44 @@ services:
   db:
     image: postgres:15
     container_name: postgres-db
+    user: postgres
     restart: always
-    env_file:
-      - .env
-    ports:
-      - "${POSTGRES_PORT}:${POSTGRES_PORT}"
+    secrets:
+      - db-password
+    environment:
+      - POSTGRES_DB=counter
+      - POSTGRES_PASSWORD_FILE=/run/secrets/db-password
+    expose:
+      - 5432
     volumes:
       - pg_data:/var/lib/postgresql/data
-      - ./migrations:/migrations
-    networks:
-      - axum-grpc-service-network
+    healthcheck:
+      test: [ "CMD", "pg_isready" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  axum-grpc-service:
+  service:
     build: .
-    container_name: axum-grpc-service
+    container_name: service
     depends_on:
-      - db
-    env_file:
-      - .env
+      db:
+        condition: service_healthy
+    secrets:
+      - db-password
+    environment:
+      - POSTGRES_HOST=db
+      - POSTGRES_PASSWORD_FILE=/run/secrets/db-password
+      - POSTGRES_USER=postgres
+      - POSTGRES_DB=counter
+      - POSTGRES_PORT=5432
     ports:
       - "50051:50051"
       - "3000:3000"
-    networks:
-      - axum-grpc-service-network
-
-networks:
-  axum-grpc-service-network:
-    driver: bridge
 
 volumes:
   pg_data:
+
+secrets:
+  db-password:
+    file: ./db/password.txt

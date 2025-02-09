@@ -1,8 +1,6 @@
 # 1️⃣ Build Stage (Use Rust Official Image with Build Tools)
 FROM rust:latest AS builder
 
-# Install sqlx-cli so that migrations can be run in the start.sh script
-RUN cargo install sqlx-cli --no-default-features --features postgres
 # Install build dependencies
 RUN apt-get update && apt-get install -y protobuf-compiler
 
@@ -17,6 +15,7 @@ RUN cargo fetch
 COPY build.rs ./
 COPY .sqlx ./.sqlx
 COPY proto ./proto
+COPY migrations ./migrations
 COPY src ./src
 
 # Build the release binary
@@ -33,13 +32,11 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Copy start script dependencies
-COPY --from=builder /usr/local/cargo/bin/sqlx /usr/local/bin/sqlx
-COPY start.sh /app/start.sh
-COPY migrations /app/migrations
+COPY --from=builder /app/migrations /app/migrations
 COPY --from=builder /app/target/release/axum-grpc-example /app/axum-grpc-example
 
 # Expose gRPC and HTTP ports
 EXPOSE 50051 8080
 
 # Call the start script
-ENTRYPOINT ["/bin/sh", "/app/start.sh"]
+CMD ["/app/axum-grpc-example"]
