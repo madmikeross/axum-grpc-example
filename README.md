@@ -14,7 +14,7 @@ Remove all volumes as well
 ```shell
 docker compose down -v
 ```
-Build and bring up the containers in the bockground
+Build and bring up the containers in the background
 ```shell
 docker compose up -build -d
 ```
