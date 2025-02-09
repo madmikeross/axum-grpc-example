@@ -15,9 +15,8 @@ pub struct MyCounterService {
 #[tonic::async_trait]
 impl CounterService for MyCounterService {
     async fn increment_counter(&self, _: Request<Empty>) -> Result<Response<CounterValue>, Status> {
-        // Directly query the PgPool (no transaction needed)
         let row = sqlx::query!("UPDATE counter SET count = count + 1 RETURNING count")
-            .fetch_one(&self.db) // Use the pool directly
+            .fetch_one(&self.db)
             .await
             .map_err(|e| Status::internal(format!("DB Error: {}", e)))?;
 
